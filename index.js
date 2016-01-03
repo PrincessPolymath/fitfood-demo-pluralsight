@@ -166,12 +166,8 @@ function processWebhookNotification(notifications) {
         notifications[0].ownerId,
         function(err, authCredentials) {
             console.log('Doing something with the credentials...', authCredentials);
-            
-            foodpath = 'https://api.fitbit.com/1/user/-/foods/log/date/' + moment().utc().format('YYYY-MM-DD') + '.json';
-            activitypath = 'https://api.fitbit.com/1/user/-/activities/date/' + moment().utc().format('YYYY-MM-DD') + '.json';
-            sleeppath = 'https://api.fitbit.com/1/user/-/sleep/date/' + moment().utc().format('YYYY-MM-DD') + '.json';
-            console.log (foodpath);
-            console.log (activitypath);
+            activitypath = 'https://api.fitbit.com/1/user/-/activities/date/' + moment().subtract(8, 'hours').format('YYYY-MM-DD') + '.json';
+            sleeppath = 'https://api.fitbit.com/1/user/-/sleep/date/' + moment().subtract(8, 'hours').format('YYYY-MM-DD') + '.json';
             function fitbit_oauth_getP(path, token) {
                 return new Promise (function(resolve, reject) {
                 console.log ("Requesting " + path)
@@ -191,14 +187,14 @@ function processWebhookNotification(notifications) {
             );
             })};
 
-            Promise.all([fitbit_oauth_getP(foodpath, authCredentials.token), 
+            Promise.all([
                          fitbit_oauth_getP(activitypath, authCredentials.token),
                          fitbit_oauth_getP(sleeppath, authCredentials.token)])
                          .then(function(arrayOfResults) {
+			console.log(moment().subtract(8,'hours').format("H"))
                         console.log(arrayOfResults);
-                        foodObject = arrayOfResults[0];
-                        activityObject = arrayOfResults[1];
-                        sleepObject = arrayOfResults[2];
+                        activityObject = arrayOfResults[0];
+                        sleepObject = arrayOfResults[1];
 
                         // Check to see it's at least 9AM
 
@@ -208,24 +204,18 @@ function processWebhookNotification(notifications) {
                                          activityObject.summary.fairlyActiveMinutes +
                                          sleepObject.summary.totalMinutesAsleep;
 
-                        hours = sleepCheck / 54;
-                        console.log(hours + " hours since midnight");
 
-
-                        //if (hours < 9 || hours > 24) {
-                        //    return;
-                        //} else {
-                            //hours = hours-9;
-                            percentageCheck = hours * 8.25;
-                        //}
-
-                        
+			hours = moment().subtract(8,'hours').format("H");
+			console.log(hours);
+                        if (hours < 9 || hours > 20) {
+                            //return;
+                        }
+                        percentageCheck = (hours-8) * 8.25;
                         // Check to make sure we have a new number of steps
                         if (authCredentials.profile.stepsToday == activityObject.summary.steps) {
                             return;
                         }
 
-                        // Update the user to set new steps and protein
 
                         db.findOne({_id: notifications[0].ownerId}, function(err, doc) {
                             if (err) {
@@ -247,25 +237,15 @@ function processWebhookNotification(notifications) {
                         // Get the todaySteps and todayProtein from the creds
                         // Set up the percentages for checking
                         var stepsPercentage = activityObject.summary.steps / activityObject.goals.steps * 100;
-                        var proteinPercentage = foodObject.summary.protein / 80 * 100;
                         console.log("Steps percentage: " + stepsPercentage);
-                        console.log("Protein percentage: " + proteinPercentage);
                         console.log("Percentage check: " + percentageCheck);
                         console.log ("Today's steps: " + activityObject.summary.steps);
                         console.log("Goal steps: " + activityObject.goals.steps);
-                        console.log("Protein today: " + foodObject.summary.protein);
-
                         
-                        // Send an SMS via twilio if either the steps or protein are lagging
                         var smsBody = '';
                         if (stepsPercentage < percentageCheck) {
                             var stepsRemaining = activityObject.goals.steps - activityObject.summary.steps;
                             smsBody += 'Get Moving! ' + stepsRemaining + ' steps to go today. ' + stepsPercentage + '% of the way there!\n';
-                        }
-
-                        if (proteinPercentage < percentageCheck) {
-                            var proteinRemaining = 80 - foodObject.summary.protein;
-                            smsBody += 'Log your foods! ' + proteinRemaining + ' grams of protein to go today. ' + proteinPercentage + '% of the way there!';
                         }
 
                         if (smsBody != '') {
@@ -274,31 +254,6 @@ function processWebhookNotification(notifications) {
                         }
 
                         console.log("Fitbit Got Activities and Food");
-                        
-                        var totalPercentage = (proteinPercentage + stepsPercentage) / 2;
-                        var currentTime = new Date();
-                        var seconds = currentTime.getTime();
-                        if (totalPercentage < 25) {
-                            twitstring = 'synedra0 ' + seconds;
-                        } else if (totalPercentage < 50) {
-                            twitstring = 'synedra1 ' + seconds;
-                        } else if (totalPercentage < 75) {
-                            twitstring = 'synedra2 ' + seconds;
-                        }  else {
-                            twitstring = 'synedra3 ' + seconds;
-                        }
-                        console.log("Twitstring: " + twitstring);
-
-                        var Twitter = require('twit');
-                        var twitter = new Twitter({
-                            consumer_key: process.env.TWITTER_CON_KEY,
-                            consumer_secret: process.env.TWITTER_CON_SECRET,
-                            access_token: process.env.TWITTER_ACC_TOKEN,
-                            access_token_secret: process.env.TWITTER_ACC_SECRET
-                        });
-                        twitter.post('statuses/update', { status: twitstring }, function(err, data, response) {
-                            console.log(data);
-                        });
             });
         }
     );
