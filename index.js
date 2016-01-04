@@ -40,7 +40,7 @@ server.register([{register: require('bell')
                         id: profile.user.encodedId,
                         displayName: profile.user.displayName,
                         name: profile.user.fullName,
-                        phone: "+18315887563",
+                        phone: process.env.USERPHONENUMBER,
                         stepsToday: 0
                     };
 
