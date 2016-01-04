@@ -198,17 +198,10 @@ function processWebhookNotification(notifications) {
 
                         // Check to see it's at least 9AM
 
-                        var sleepCheck = activityObject.summary.lightlyActiveMinutes +
-                                         activityObject.summary.sedentaryMinutes +
-                                         activityObject.summary.veryActiveMinutes +
-                                         activityObject.summary.fairlyActiveMinutes +
-                                         sleepObject.summary.totalMinutesAsleep;
-
-
 			hours = moment().subtract(8,'hours').format("H");
 			console.log(hours);
                         if (hours < 9 || hours > 20) {
-                            //return;
+                            return;
                         }
                         percentageCheck = (hours-8) * 8.25;
                         // Check to make sure we have a new number of steps
